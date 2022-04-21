@@ -8,4 +8,8 @@
 .landing-links {
   width: 100%;
   text-align: center;
+}
+
+button {
+  font-size: 20px;
 }/*# sourceMappingURL=landing-page.component.css.map */
