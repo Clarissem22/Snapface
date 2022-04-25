@@ -1,102 +1,64 @@
 import { Injectable } from '@angular/core';
 import { FaceSnap } from '../models/face-snap.model';
 import { getTestBed } from '@angular/core/testing';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { switchMap, map } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root',
 })
 export class FaceSnapsService {
-  faceSnaps: FaceSnap[] = [
-    {
-      id: 1,
-      title: 'Franck',
-      description: 'Il nous surveille ! ',
-      imageUrl:
-        'https://cdn.pixabay.com/photo/2015/05/31/16/03/teddy-bear-792273_1280.jpg',
-      createdDate: new Date(),
-      snaps: 999,
-      location: 'Pau',
-    },
+  constructor(private http: HttpClient) {}
 
-    {
-      id: 2,
-      title: 'Travel',
-      description: 'Bali',
-      imageUrl: 'assets/img/Travel.avif',
-      createdDate: new Date(),
-      snaps: 150,
-    },
-
-    {
-      id: 3,
-      title: 'Road Trip',
-      description: 'Desert',
-      imageUrl: 'assets/img/roadtrip.png',
-      createdDate: new Date(),
-      snaps: 60,
-      location: 'Australie',
-    },
-    {
-      id: 4,
-      title: 'Franck',
-      description: 'Il nous surveille ! ',
-      imageUrl:
-        'https://cdn.pixabay.com/photo/2015/05/31/16/03/teddy-bear-792273_1280.jpg',
-      createdDate: new Date(),
-      snaps: 52,
-      location: 'Pau',
-    },
-
-    {
-      id: 5,
-      title: 'Travel',
-      description: 'Bali',
-      imageUrl: 'assets/img/Travel.avif',
-      createdDate: new Date(),
-      snaps: 199,
-    },
-
-    {
-      id: 6,
-      title: 'Road Trip',
-      description: 'Desert',
-      imageUrl: 'assets/img/roadtrip.png',
-      createdDate: new Date(),
-      snaps: 22,
-      location: 'Australie',
-    },
-  ];
-
-  getAllFaceSnaps(): FaceSnap[] {
-    return this.faceSnaps;
+  getAllFaceSnaps(): Observable<FaceSnap[]> {
+    return this.http.get<FaceSnap[]>('http://localhost:3000/facesnaps');
   }
 
-getFaceSnapById(faceSnapId: number): FaceSnap {
-    const faceSnap = this.faceSnaps.find(faceSnap => faceSnap.id === faceSnapId);
-    if (!faceSnap) {
-        throw new Error('FaceSnap not found!');
-    } else {
-        return faceSnap
-    }
-}
+  getFaceSnapById(faceSnapId: number): Observable<FaceSnap> {
+    return this.http.get<FaceSnap>(
+      `http://localhost:3000/facesnaps/${faceSnapId}`
+    );
+  }
 
-  snapFaceSnapById(faceSnapId : number, snapType: 'snap' | 'unsnap'): void {
-     const faceSnap = this.getFaceSnapById(faceSnapId);
-     snapType === 'snap' ? faceSnap.snaps++ : faceSnap.snaps--;
-      }
+  snapFaceSnapById(
+    faceSnapId: number,
+    snapType: 'snap' | 'unsnap'
+  ): Observable<FaceSnap> {
+    return this.getFaceSnapById(faceSnapId).pipe(
+      map((faceSnap) => ({
+        ...faceSnap,
+        snaps: faceSnap.snaps + (snapType === 'snap' ? 1 : -1),
+      })),
+      switchMap((updatedFaceSnap) =>
+        this.http.put<FaceSnap>(
+          `http://localhost:3000/facesnaps/${faceSnapId}`,
+          updatedFaceSnap
+        )
+      )
+    );
+  }
 
-    addFaceSnap(formValue: {title: string, description: string, imageUrl: string, location?: string}): void{
-      const faceSnap: FaceSnap = {
+  addFaceSnap(formValue: {
+    title: string;
+    description: string;
+    imageUrl: string;
+    location?: string;
+  }): Observable<FaceSnap> {
+    return this.getAllFaceSnaps().pipe(
+      map((facesnaps) =>
+        [...facesnaps].sort((a: FaceSnap, b: FaceSnap) => a.id - b.id)
+      ),
+      map((sortedFacesnaps) => sortedFacesnaps[sortedFacesnaps.length - 1]),
+      map((previousFaceSnap) => ({
         ...formValue,
-        createdDate: new Date(),
         snaps: 0,
-        id: this.faceSnaps[this.faceSnaps.length -1].id +1
-      };
-
-      this.faceSnaps.push(faceSnap);
-      }
-    }
-
-  
- 
-
+        createdDate: new Date(),
+        id: previousFaceSnap.id + 1,
+      })),
+      switchMap((newFacesnap) =>
+        this.http.post<FaceSnap>('http://localhost:3000/facesnaps', newFacesnap)
+      )
+    );
+  }
+}
